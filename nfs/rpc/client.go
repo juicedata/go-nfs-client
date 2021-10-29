@@ -119,7 +119,7 @@ func (c *Client) receive() {
 		}
 		res, err := t.recv()
 		if err != nil {
-			util.Infof("nfs rpc: recv got error: %s", err)
+			util.Debugf("nfs rpc: recv got error: %s", err)
 			c.disconnect()
 			continue
 		}
@@ -150,6 +150,9 @@ func (c *Client) connect() (*tcpTransport, error) {
 		// bind error, pick a new port
 		conn, err = net.DialTCP(a.Network(), c.pickLdr(), a)
 	}
+	if err != nil {
+		return nil, err
+	}
 	util.Debugf("connected with local %s -> remote %s", conn.LocalAddr(), c.addr)
 	return &tcpTransport{
 		r:  bufio.NewReader(conn),
@@ -162,8 +165,8 @@ func (c *Client) disconnect() {
 	defer c.Unlock()
 	if c.tcpTransport != nil {
 		c.tcpTransport.Close()
+		c.tcpTransport = nil
 	}
-	c.tcpTransport = nil
 	for _, r := range c.replies {
 		close(r)
 	}
