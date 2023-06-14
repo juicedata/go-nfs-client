@@ -1,6 +1,5 @@
 // Copyright © 2017 VMware, Inc. All Rights Reserved.
 // SPDX-License-Identifier: BSD-2-Clause
-//
 package nfs
 
 import (
@@ -265,7 +264,37 @@ func (v *Target) checkCachedDir(fh []byte) error {
 	}
 
 	v.cacheM.Unlock()
-	entries, err := v.readDirPlus(fh)
+	var (
+		entries    []*EntryPlus
+		entriesMap map[string]*EntryPlus
+		err        error
+		dattr      *Fattr
+	)
+
+	for {
+		entriesMap = make(map[string]*EntryPlus)
+		entries, err = v.readDirPlus(fh)
+		if err != nil {
+			break
+		}
+		for _, entry := range entries {
+			if entry.FileName == ".." {
+				continue
+			}
+			entriesMap[entry.FileName] = entry
+		}
+		dir := entriesMap["."]
+		if dir == nil {
+			continue
+		}
+		dattr, err = v.GetAttr(fh)
+		if err != nil {
+			break
+		}
+		if dattr.ModTime().Equal(dir.ModTime()) {
+			break
+		}
+	}
 	v.cacheM.Lock()
 	if err != nil {
 		return err
@@ -273,14 +302,7 @@ func (v *Target) checkCachedDir(fh []byte) error {
 
 	es, ok = v.cachedTree[ino]
 	if ok && time.Since(es.expire) < 0 { // updated by others
-		var myMtime time.Time
-		for _, entry := range entries {
-			if entry.FileName == "." {
-				myMtime = entry.ModTime()
-				break
-			}
-		}
-		if !myMtime.After(es.entries["."].ModTime()) {
+		if !entriesMap["."].ModTime().After(es.entries["."].ModTime()) {
 			// es.expire = time.Now().Add(v.entryTimeout)
 			return nil
 		}
@@ -289,15 +311,45 @@ func (v *Target) checkCachedDir(fh []byte) error {
 		es = &cachedDir{}
 		v.cachedTree[ino] = es
 	}
-	es.entries = make(map[string]*EntryPlus)
-	for _, entry := range entries {
-		if entry.FileName == ".." {
-			continue
-		}
-		es.entries[entry.FileName] = entry
-	}
+	es.entries = entriesMap
 	es.expire = time.Now().Add(v.entryTimeout)
 	return nil
+}
+
+func (v *Target) GetAttr(fh []byte) (*Fattr, error) {
+	type GetAttr3Args struct {
+		rpc.Header
+		FH []byte
+	}
+
+	type GetAttr3Res struct {
+		Attr struct {
+			Attr Fattr
+		}
+	}
+
+	res, err := v.call(&GetAttr3Args{
+		Header: rpc.Header{
+			Rpcvers: 2,
+			Prog:    Nfs3Prog,
+			Vers:    Nfs3Vers,
+			Proc:    NFSProc3GetAttr,
+			Cred:    v.auth,
+			Verf:    rpc.AuthNull,
+		},
+		FH: fh,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	getattrres := new(GetAttr3Res)
+	if err := xdr.Read(res, getattrres); err != nil {
+		return nil, err
+	}
+
+	return &getattrres.Attr.Attr, nil
 }
 
 func (v *Target) readDirPlus(fh []byte) ([]*EntryPlus, error) {

@@ -1,6 +1,5 @@
 // Copyright © 2017 VMware, Inc. All Rights Reserved.
 // SPDX-License-Identifier: BSD-2-Clause
-//
 package nfs
 
 import (
@@ -18,6 +17,7 @@ const (
 	Nfs3Vers = 3
 
 	// program methods
+	NFSProc3GetAttr     = 1
 	NFSProc3Lookup      = 3
 	NFSProc3Readlink    = 5
 	NFSProc3Read        = 6
