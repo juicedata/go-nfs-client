@@ -18,12 +18,14 @@ const (
 
 	// program methods
 	NFSProc3GetAttr     = 1
+	NFSProc3SetAttr     = 2
 	NFSProc3Lookup      = 3
 	NFSProc3Readlink    = 5
 	NFSProc3Read        = 6
 	NFSProc3Write       = 7
 	NFSProc3Create      = 8
 	NFSProc3Mkdir       = 9
+	NFSProc3Symlink     = 10
 	NFSProc3Remove      = 12
 	NFSProc3RmDir       = 13
 	NFSProc3Rename      = 14
