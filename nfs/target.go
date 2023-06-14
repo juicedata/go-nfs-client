@@ -138,7 +138,7 @@ func (v *Target) cleanupCache() {
 }
 
 // Lookup returns attributes and the file handle to a given dirent
-func (v *Target) Lookup(p string) (os.FileInfo, []byte, error) {
+func (v *Target) Lookup(p string, cached ...bool) (os.FileInfo, []byte, error) {
 	var (
 		err   error
 		fattr *Fattr
@@ -154,7 +154,11 @@ func (v *Target) Lookup(p string) (os.FileInfo, []byte, error) {
 			dirent = "."
 		}
 
-		fattr, fh, err = v.cachedLookup(fh, dirent)
+		if len(cached) > 1 && cached[0] {
+			fattr, fh, err = v.cachedLookup(fh, dirent)
+		} else {
+			fattr, fh, err = v.lookup(fh, dirent)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -316,6 +320,7 @@ func (v *Target) checkCachedDir(fh []byte) error {
 	return nil
 }
 
+// GetAttr returns the attributes of the file/directory specified by fh
 func (v *Target) GetAttr(fh []byte) (*Fattr, error) {
 	type GetAttr3Args struct {
 		rpc.Header
@@ -350,6 +355,48 @@ func (v *Target) GetAttr(fh []byte) (*Fattr, error) {
 	}
 
 	return &getattrres.Attr.Attr, nil
+}
+
+// SetAttr sets the attributes of the file/directory specified by fh
+func (v *Target) SetAttr(fh []byte, sattr Sattr3) (*Fattr, error) {
+	type GuardTime struct {
+		IsSet     bool     `xdr:"union"`
+		GuardTime NFS3Time `xdr:"unioncase=1"`
+	}
+
+	type SetAttr3Args struct {
+		rpc.Header
+		FH        []byte
+		Attr      Sattr3
+		GuardTime GuardTime
+	}
+
+	type SetAttr3Res struct {
+		DirWcc WccData
+	}
+
+	res, err := v.call(&SetAttr3Args{
+		Header: rpc.Header{
+			Rpcvers: 2,
+			Prog:    Nfs3Prog,
+			Vers:    Nfs3Vers,
+			Proc:    NFSProc3SetAttr,
+			Cred:    v.auth,
+			Verf:    rpc.AuthNull,
+		},
+		FH:   fh,
+		Attr: sattr,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	setattrres := new(SetAttr3Res)
+	if err := xdr.Read(res, setattrres); err != nil {
+		return nil, err
+	}
+	return &setattrres.DirWcc.After.Attr, nil
 }
 
 func (v *Target) readDirPlus(fh []byte) ([]*EntryPlus, error) {
