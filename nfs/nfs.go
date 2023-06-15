@@ -192,7 +192,7 @@ func (e *EntryPlus) Sys() interface{} {
 		return 0
 	}
 
-	return e.FileId
+	return &e.Attr.Attr
 }
 
 type WccData struct {
