@@ -822,3 +822,45 @@ func (v *Target) rename(fhSrc []byte, src string, fhDst []byte, dst string) erro
 	v.invalidateEntryCache(fhDst, dst)
 	return nil
 }
+
+// Symlink creates a symbolic link refer to src
+func (v *Target) Symlink(src, dst string) error {
+	parentDst, dst := filepath.Split(dst)
+	_, fhDst, err := v.Lookup(parentDst)
+	if err != nil {
+		return err
+	}
+
+	return v.symlink(src, fhDst, dst)
+}
+
+func (v *Target) symlink(srcPath string, fhDst []byte, dst string) error {
+	type SymlinkArgs struct {
+		rpc.Header
+		Link             Diropargs3
+		Sattr            Sattr3
+		SymbolicLinkData string
+	}
+
+	_, err := v.call(&SymlinkArgs{
+		Header: rpc.Header{
+			Rpcvers: 2,
+			Prog:    Nfs3Prog,
+			Vers:    Nfs3Vers,
+			Proc:    NFSProc3Rename,
+			Cred:    v.auth,
+			Verf:    rpc.AuthNull,
+		},
+		Link: Diropargs3{
+			FH:       fhDst,
+			Filename: dst,
+		},
+		SymbolicLinkData: srcPath,
+	})
+
+	if err != nil {
+		util.Debugf("symlink(%s -> %s): %s", srcPath, dst, err.Error())
+		return err
+	}
+	return nil
+}
