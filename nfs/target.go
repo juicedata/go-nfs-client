@@ -847,7 +847,7 @@ func (v *Target) symlink(srcPath string, fhDst []byte, dst string) error {
 			Rpcvers: 2,
 			Prog:    Nfs3Prog,
 			Vers:    Nfs3Vers,
-			Proc:    NFSProc3Rename,
+			Proc:    NFSProc3Symlink,
 			Cred:    v.auth,
 			Verf:    rpc.AuthNull,
 		},
