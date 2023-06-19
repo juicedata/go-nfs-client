@@ -154,7 +154,7 @@ func (v *Target) Lookup(p string, cached ...bool) (os.FileInfo, []byte, error) {
 			dirent = "."
 		}
 
-		if len(cached) > 1 && cached[0] {
+		if len(cached) > 0 && cached[0] {
 			fattr, fh, err = v.cachedLookup(fh, dirent)
 		} else {
 			fattr, fh, err = v.lookup(fh, dirent)
