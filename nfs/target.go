@@ -33,6 +33,12 @@ type Target struct {
 	entryTimeout time.Duration
 	cacheM       sync.Mutex
 	cachedTree   map[string]*cachedDir
+	Config       Config
+}
+
+type Config struct {
+	DirCount uint32
+	MaxCount uint32
 }
 
 func NewTarget(addr string, auth rpc.Auth, fh []byte, dirpath string, entryTimeout time.Duration) (*Target, error) {
@@ -55,6 +61,7 @@ func NewTarget(addr string, auth rpc.Auth, fh []byte, dirpath string, entryTimeo
 		dirPath:      dirpath,
 		entryTimeout: entryTimeout,
 		cachedTree:   make(map[string]*cachedDir),
+		Config:       Config{DirCount: 512, MaxCount: 4096},
 	}
 
 	fsinfo, err := vol.FSInfo()
@@ -437,8 +444,8 @@ func (v *Target) readDirPlus(fh []byte) ([]*EntryPlus, error) {
 			FH:         fh,
 			Cookie:     cookie,
 			CookieVerf: cookieVerf,
-			DirCount:   512,
-			MaxCount:   4096,
+			DirCount:   v.Config.DirCount,
+			MaxCount:   v.Config.MaxCount,
 		})
 
 		if err != nil {
